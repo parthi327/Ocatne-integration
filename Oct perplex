@@ -1,0 +1,96 @@
+Here is Java code that covers these tasks using the ALM Octane REST API: fetch the last manual run of a manual test, update its status, add an attachment, and update user tags. This code uses Java’s HttpURLConnection, Jackson for JSON, and handles authentication with an API key.You may want to switch to a dedicated SDK (see official GitHub), but the following example gives you direct REST usage for the core tasks�:// Required dependencies: com.fasterxml.jackson.core, com.fasterxml.jackson.databind
+import java.io.*;
+import java.net.*;
+import java.nio.file.Files;
+import java.util.*;
+import com.fasterxml.jackson.databind.*;
+
+public class OctaneApiExample {
+    static final String OCTANE_URL = "https://your-octane-server/api/shared_spaces/{shared_space_id}/workspaces/{workspace_id}";
+    static final String API_KEY = "your-API-key";
+    static final String API_SECRET = "your-API-secret";
+    static final ObjectMapper objectMapper = new ObjectMapper();
+
+    static String getAuthToken() throws IOException {
+        URL url = new URL(OCTANE_URL + "/authentication/sign_in");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        String auth = API_KEY + ":" + API_SECRET;
+        String encoded = Base64.getEncoder().encodeToString(auth.getBytes());
+        conn.setRequestProperty("Authorization", "Basic " + encoded);
+        int resp = conn.getResponseCode();
+        if (resp == 200 || resp == 201) {
+            // Retrieve session cookie/header if needed
+            return conn.getHeaderField("LWSSO_COOKIE_KEY");
+        } else {
+            throw new IOException("Auth failed. Response code: " + resp);
+        }
+    }
+
+    static JsonNode getLastManualRun(String authToken, String testId) throws IOException {
+        String query = "manual_runs?query="test.id=" + testId + ""&order_by=-creation_time&limit=1";
+        URL url = new URL(OCTANE_URL + "/" + query);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestProperty("Cookie", "LWSSO_COOKIE_KEY=" + authToken);
+        conn.setRequestProperty("Accept", "application/json");
+        return objectMapper.readTree(conn.getInputStream()).get("data").get(0);
+    }
+
+    static void updateRunStatus(String authToken, String runId, String newStatus) throws IOException {
+        URL url = new URL(OCTANE_URL + "/manual_runs/" + runId);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("PUT");
+        conn.setRequestProperty("Cookie", "LWSSO_COOKIE_KEY=" + authToken);
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+        String payload = "{"status": {"id": "" + newStatus + ""}}";
+        conn.getOutputStream().write(payload.getBytes());
+        if (conn.getResponseCode() != 200) throw new IOException("Status update failed!");
+    }
+
+    static void addAttachment(String authToken, String entityId, File file) throws IOException {
+        String boundary = "----XX" + System.currentTimeMillis();
+        URL url = new URL(OCTANE_URL + "/attachments");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Cookie", "LWSSO_COOKIE_KEY=" + authToken);
+        conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+        conn.setDoOutput(true);
+        OutputStream out = conn.getOutputStream();
+        out.write(("--" + boundary + "
+").getBytes());
+        out.write(("Content-Disposition: form-data; name="file"; filename="" + file.getName() + ""
+").getBytes());
+        out.write(("Content-Type: application/octet-stream
+
+").getBytes());
+        Files.copy(file.toPath(), out);
+        out.write(("
+--" + boundary + "--
+").getBytes());
+        out.flush();
+        if (conn.getResponseCode() != 201) throw new IOException("Attachment upload failed!");
+    }
+
+    static void updateUserTags(String authToken, String runId, List<String> tags) throws IOException {
+        URL url = new URL(OCTANE_URL + "/manual_runs/" + runId);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("PUT");
+        conn.setRequestProperty("Cookie", "LWSSO_COOKIE_KEY=" + authToken);
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+        StringBuilder tagList = new StringBuilder();
+        for (String tag : tags) tagList.append("{"name":"").append(tag).append(""},");
+        if (!tags.isEmpty()) tagList.setLength(tagList.length() - 1);
+        String payload = "{"user_tags": [" + tagList + "]}";
+        conn.getOutputStream().write(payload.getBytes());
+        if (conn.getResponseCode() != 200) throw new IOException("Tags update failed!");
+    }
+
+    // Example usage: call these in sequence
+    // String authToken = getAuthToken();
+    // JsonNode run = getLastManualRun(authToken, "your-test-id");
+    // updateRunStatus(authToken, run.get("id").asText(), "list_node.run_status.passed");
+    // addAttachment(authToken, run.get("id").asText(), new File("result.txt"));
+    // updateUserTags(authToken, run.get("id").asText(), Arrays.asList("tag1", "tag2"));
+}Replace placeholder URLs, space and workspace IDs, and authentication values as needed.For production, use the official Java SDK as it abstracts many details and is easier to maintain. See complete working samples in the GitHub repository��. All endpoints and field names should be checked against the Octane API documentation for your server version�.This should serve as a strong starting point for scripting with the Octane API in Java���.
