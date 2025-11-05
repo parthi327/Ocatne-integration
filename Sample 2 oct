@@ -1,0 +1,98 @@
+
+public class Run {
+    private String id;
+    private String name;
+    private String status;
+
+    public Run() {}
+
+    public Run(String id, String name, String status) {
+        this.id = id;
+        this.name = name;
+        this.status = status;
+    }
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    @Override
+    public String toString() {
+        return "Run{" +
+                "id='" + id + '\'' +
+                ", name='" + name + '\'' +
+                ", status='" + status + '\'' +
+                '}';
+    }
+}
+🧩 Step 2 – Create the Utility Method
+Copy code
+Java
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
+import java.util.HashMap;
+import java.util.Map;
+
+public class OctaneApiUtil {
+
+    private static final String BASE_URI = "https://your-octane-server-url";
+    private static final String SHARED_SPACE_ID = "1001";
+    private static final String WORKSPACE_ID = "2002";
+
+    // Headers (token example)
+    private static Map<String, String> getHeaders() {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        headers.put("HPECLIENTTYPE", "HPE_REST_API_TECH_PREVIEW");
+        headers.put("Authorization", "Bearer your_token_here");
+        return headers;
+    }
+
+    public static Run getLatestRunDetails(String testId) {
+        Map<String, String> queryParams = new HashMap<>();
+        queryParams.put("query", "test={id=" + testId + "}");
+        queryParams.put("order_by", "-id");
+        queryParams.put("limit", "1");
+
+        Response response = RestAssured
+                .given()
+                    .baseUri(BASE_URI)
+                    .basePath("/api/shared_spaces/" + SHARED_SPACE_ID + "/workspaces/" + WORKSPACE_ID + "/runs")
+                    .headers(getHeaders())
+                    .queryParams(queryParams)
+                .when()
+                    .get()
+                .then()
+                    .statusCode(200)
+                    .extract()
+                    .response();
+
+        String id = response.jsonPath().getString("data[0].id");
+        String name = response.jsonPath().getString("data[0].name");
+        String status = response.jsonPath().getString("data[0].status.id");
+
+        if (id == null) {
+            System.out.println("No run found for test ID: " + testId);
+            return null;
+        }
+
+        return new Run(id, name, status);
+    }
+}
+🧩 Step 3 – Example Usage
+Copy code
+Java
+public class OctaneTest {
+    public static void main(String[] args) {
+        Run latestRun = OctaneApiUtil.getLatestRunDetails("12345");
+        if (latestRun != null) {
+            System.out.println("Latest run details:");
+            System.out.println(latestRun);
+        }
+    }
+}
