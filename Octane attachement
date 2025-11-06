@@ -1,0 +1,51 @@
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
+
+public class OctaneAttachmentUploader {
+
+    private static final String BASE_URI = "https://your-octane-server-url";
+    private static final String SHARED_SPACE_ID = "1001";
+    private static final String WORKSPACE_ID = "2002";
+
+    private static Map<String, String> getHeaders() {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("HPECLIENTTYPE", "HPE_REST_API_TECH_PREVIEW");
+        headers.put("Authorization", "Bearer your_token_here");
+        return headers;
+    }
+
+    public static void uploadAttachmentToRun(String runId, String filePath) {
+        File fileToUpload = new File(filePath);
+
+        String entityJson = "{ \"type\": \"run\", \"id\": \"" + runId + "\" }";
+
+        String endpoint = String.format(
+                "/api/shared_spaces/%s/workspaces/%s/attachments",
+                SHARED_SPACE_ID, WORKSPACE_ID);
+
+        Response response = RestAssured
+                .given()
+                    .baseUri(BASE_URI)
+                    .basePath(endpoint)
+                    .headers(getHeaders())
+                    .multiPart("entity", entityJson, "application/json")
+                    .multiPart("file", fileToUpload)
+                .when()
+                    .post()
+                .then()
+                    .statusCode(201) // 201 Created
+                    .extract()
+                    .response();
+
+        System.out.println("✅ File uploaded successfully to run ID: " + runId);
+        System.out.println("Attachment details:");
+        System.out.println(response.asPrettyString());
+    }
+
+    public static void main(String[] args) {
+        uploadAttachmentToRun("4512", "C:\\Users\\Parthi\\Documents\\TestEvidence.xlsx");
+    }
+}
