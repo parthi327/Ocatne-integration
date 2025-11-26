@@ -1,0 +1,86 @@
+
+Read JIRA IDs from a text file (split by comma)
+Call JIRA REST API using Axios + Personal Access Token (PAT)
+Extract fields like acceptance criteria, issue type, summary, etc.
+Store output into a JSON file
+
+npm install axios dotenv fs
+npm install --save-dev typescript ts-node @types/node
+
+
+
+
+
+import fs from "fs";
+import axios from "axios";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+// ====== READ IDs FROM FILE ======
+function readJiraIds(filePath: string): string[] {
+  const data = fs.readFileSync(filePath, "utf-8");
+  return data.split(",").map(id => id.trim());
+}
+
+// ====== GET ISSUE FROM JIRA API ======
+async function getJiraIssue(issueId: string) {
+  const url = `${process.env.JIRA_BASE_URL}/rest/api/3/issue/${issueId}`;
+
+  const auth = Buffer
+    .from(`${process.env.JIRA_EMAIL}:${process.env.JIRA_API_TOKEN}`)
+    .toString("base64");
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        "Authorization": `Basic ${auth}`,
+        "Accept": "application/json"
+      }
+    });
+
+    return response.data;
+
+  } catch (error: any) {
+    console.error(`❌ Failed to fetch ${issueId}:`, error.response?.data || error.message);
+    return null;
+  }
+}
+
+// ====== PROCESS & EXTRACT FIELDS ======
+function extractFields(issue: any) {
+  if (!issue) return null;
+
+  const fields = issue.fields;
+
+  return {
+    id: issue.key,
+    summary: fields.summary,
+    issueType: fields.issuetype?.name,
+    acceptanceCriteria: fields.customfield_12345 || "",   // Replace with your AC field ID
+    status: fields.status?.name
+  };
+}
+
+// ====== MAIN FLOW ======
+async function main() {
+  const jiraIds = readJiraIds("src/jiraIds.txt");
+
+  const results: any[] = [];
+
+  for (const id of jiraIds) {
+    console.log(`Fetching: ${id}`);
+
+    const issue = await getJiraIssue(id);
+    const extracted = extractFields(issue);
+
+    if (extracted) results.push(extracted);
+  }
+
+  // Save JSON output
+  fs.writeFileSync("output.json", JSON.stringify(results, null, 2));
+
+  console.log("✅ Output saved to output.json");
+}
+
+main();
