@@ -1,0 +1,56 @@
+Here's a well-structured prompt you can use:
+Prompt
+You are an expert Java developer with deep knowledge of Micro Focus ALM Octane REST APIs and TestNG frameworks.
+Context:
+I have a Selenium Java TestNG framework that generates a testng-results.xml file after test execution. I need to programmatically integrate this with ALM Octane using Java and Octane's REST APIs.
+Assumptions:
+Octane is already set up with a valid server URL, shared space ID, and workspace ID
+A Product Area already exists in Octane
+A Test Suite already exists in Octane
+Authentication credentials (client ID + client secret) are available
+Task — implement the following flow in Java, in order:
+1. Authentication
+Authenticate with Octane using client ID and client secret via the /authentication/sign_in endpoint
+Store and reuse the LWSSO_COOKIE_KEY session cookie for all subsequent API calls
+2. Parse testng-results.xml
+Parse the TestNG results XML file using a Java XML parser (e.g. JAXB or DOM)
+Extract: test name, class name, method name, status (PASS/FAIL/SKIP), duration, and any failure messages
+3. Create Automated Tests (AT) inside the existing Test Suite
+For each unique test method found in the XML, create an Automated Test (AT) entity in Octane under the existing Test Suite
+Map the test class and method name appropriately
+Set the test type to Automated and link to the existing Product Area
+Use POST /api/shared_spaces/{shared_space_id}/workspaces/{workspace_id}/tests
+4. Create a Suite Run
+Create a Suite Run entity in Octane linked to the existing Test Suite
+Set the run name, start time, and status based on the overall XML results
+Use POST /api/shared_spaces/{shared_space_id}/workspaces/{workspace_id}/suite_runs
+5. Create Automated Runs (AR) inside the Suite Run
+For each test result in the XML, create an Automated Run (AR) entity inside the Suite Run created in step 4
+Map status: passed, failed, skipped
+Link each AR to the corresponding AT created in step 3
+Include duration and failure message where applicable
+Use POST /api/shared_spaces/{shared_space_id}/workspaces/{workspace_id}/runs
+6. Upload Attachments to the Suite Run
+Upload the testng-results.xml (and optionally any screenshots or logs) as attachments to the Suite Run created above
+Use POST /api/shared_spaces/{shared_space_id}/workspaces/{workspace_id}/attachments
+Send as multipart/form-data with the entity type and ID referencing the Suite Run
+Technical Requirements:
+Language: Java 11+
+HTTP Client: HttpClient (native Java 11) or Apache HttpClient
+JSON library: org.json or Jackson
+XML parsing: DOM or JAXB
+Structure the code into clean, separate classes:
+OctaneAuthenticator.java — handles login and cookie management
+TestNGResultsParser.java — parses the XML and returns a list of test result POJOs
+OctaneTestCreator.java — creates ATs in Octane
+OctaneSuiteRunCreator.java — creates Suite Run and ARs
+OctaneAttachmentUploader.java — handles file attachment upload
+OctaneIntegrationRunner.java — main orchestrator class
+Include all JSON request payload examples for each API call
+Include error handling (HTTP status checks, meaningful exceptions)
+Add inline comments explaining each API interaction
+Output expected:
+Complete, runnable Java source code for all classes above
+Sample JSON payloads for each Octane REST API request
+Maven pom.xml with required dependencies
+A brief explanation of the entity relationships: Test Suite → AT → Suite Run → AR → Attachments
